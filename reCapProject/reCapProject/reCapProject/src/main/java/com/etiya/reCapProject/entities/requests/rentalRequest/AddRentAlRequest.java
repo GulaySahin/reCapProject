@@ -26,7 +26,6 @@ import lombok.Setter;
 @Validated
 
 public class AddRentAlRequest {
-	
 	private Date rentDate;
 
 	private Date returnDate;
@@ -51,6 +50,8 @@ public class AddRentAlRequest {
 
 
 	private boolean saveCreditCard;
+	
+	
 
 	
 	@NotNull(message = "Boş Geçilemez!")

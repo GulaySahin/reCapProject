@@ -98,18 +98,21 @@ public class CarImagesManager implements CarImagesService{
 		fileoutputstream.write(updateCarImagesRequest.getFile().getBytes());
 		fileoutputstream.close();
 		
-		Car car = new Car();
+		Car car = this.carDao.getById(updateCarImagesRequest.getCarId());
 		car.setCarId(updateCarImagesRequest.getCarId());
 		
-		CarImages carImages = new CarImages();
+		CarImages carImages = this.carImageDao.getById(updateCarImagesRequest.getId());
 		carImages.setId(updateCarImagesRequest.getId());
 		carImages.setImagePath(myFiles.toString());
 		
 		carImages.setCar(car);
+		carImages.setDate(dateNow);
 		
 		this.carImageDao.save(carImages);
 		return new SuccessResult(Messages.Update);
 	}
+	
+	
 
 	@Override
 	public Result delete(DeleteCarImagesRequest deleteCarImagesRequest) {

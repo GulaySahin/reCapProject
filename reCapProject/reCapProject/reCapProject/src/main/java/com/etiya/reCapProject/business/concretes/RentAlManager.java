@@ -95,135 +95,144 @@ public class RentAlManager implements RentAlService{
 	
 	@Override
 	public Result addRentalForIndividualCustomer(AddRentAlRequest addRentAlRequest) {
-		Car car=this.carDao.getById(addRentAlRequest.getCarId());
+		Car car = this.carDao.getById(addRentAlRequest.getCarId());
+
 		
-		//teslim ettikten sonraki teslim edilen il
+
+		IndividualCustomer individualCustomer = new IndividualCustomer();
+		individualCustomer.setId(addRentAlRequest.getCustomerId());
+
+		RentAl rentAl = new RentAl();
+		rentAl.setRentDate(addRentAlRequest.getRentDate());
+		rentAl.setReturnDate(addRentAlRequest.getReturnDate());
+
+		//Arabanın kiralanmadan önceki ili kiralanma şehri olacak
+		rentAl.setTakeCity(car.getCity());
+
+		// Arabanın kiralanmadan önceki ili kiralanma şehri olacak
+		rentAl.setStartKilometer(car.getKilometer());
+
+		rentAl.setEndKilometer(addRentAlRequest.getEndKilometer());
+		rentAl.setReturnCity(addRentAlRequest.getReturnCity());
+
+		// Ek hizmetleri hesaplama methodu.
+		rentAl.setAmount(checkCalculateTotalAmountOfRental(addRentAlRequest));
+
+		// Müşterinin girdiği km bilgisini arabanın km bilgisi ile güncelleme
+		car.setKilometer(addRentAlRequest.getEndKilometer() + car.getKilometer());
+
+		rentAl.setCar(car);
+		rentAl.setCustomers(individualCustomer);
+
+		// iş motoru
+		var result = BusinnesRules.run(checkCarIsSubmit(rentAl.getCar().getCarId()),
+				checkIndiviualCustomerFindexPoint(this.individualCustomerDao.getById(addRentAlRequest.getCustomerId()),
+						this.carDao.getById(addRentAlRequest.getCarId())),
+				checkIsCarCare(addRentAlRequest.getCarId()),
+				this.checkPaymentControl(addRentAlRequest.getCreditCardDto(), getRentalTotalPrice(addRentAlRequest)));
+
+		if (result != null) {
+			return result;
+		}
+
+		this.rentAlDao.save(rentAl);
+		
+		// Arabayı tekrar teslim ettiğimizde teslim ili arabanın bulunduğu il olacak
 		car.setCity(addRentAlRequest.getReturnCity());
 		this.carDao.save(car);
 
-		
-		IndividualCustomer individualCustomer= new IndividualCustomer();
-		individualCustomer.setId(addRentAlRequest.getCustomerId());
-		
-		RentAl rentAl=new RentAl();
-		rentAl.setRentDate(addRentAlRequest.getRentDate());
-		rentAl.setReturnDate(addRentAlRequest.getReturnDate());
-		
-		//kiralamadan önceki başlangıç şehiri.
-		rentAl.setTakeCity(car.getCity());
-		rentAl.setStartKilometer(car.getKilometer());
-		rentAl.setEndKilometer(addRentAlRequest.getEndKilometer());
-		rentAl.setReturnCity(addRentAlRequest.getReturnCity());
-		rentAl.setAmount(checkCalculateTotalAmountOfRental(addRentAlRequest));
-
-		//rentAl.setAmount(checkCalculateTotalAmountOfRental(addRentAlRequest));
-
-		car.setKilometer(addRentAlRequest.getEndKilometer()+car.getKilometer());
-		
-		rentAl.setCar(car);
-		rentAl.setCustomers(individualCustomer);
-		
-
-		var result= BusinnesRules.run(checkCarIsSubmit(rentAl.getCar().getCarId()),checkIndiviualCustomerFindexPoint(
-				this.individualCustomerDao.getById(addRentAlRequest.getCustomerId()),
-				this.carDao.getById(addRentAlRequest.getCarId())),checkIsCarCare(addRentAlRequest.getCarId()),
-				this.checkPaymentControl(addRentAlRequest.getCreditCardDto(),getRentalTotalPrice(addRentAlRequest)));
-
-		if (result!=null) {
-			return result;
-		}
-		
-		this.rentAlDao.save(rentAl);
-		
+		// Müşteri kredi kartını kaydetmek istiyorsa kaydetme işlemi
 		if (addRentAlRequest.isSaveCreditCard()) {
 			this.checkCreditCardPaymentAndSavedControl(addRentAlRequest.getCreditCardDto(),
 					addRentAlRequest.getCustomerId());
 		}
 		return new SuccessResult(Messages.Add);
-		
+
 	}
 
 	@Override
 	public Result updateRentalForIndividualCustomer(UpdateRentAlRequest updateRentAlRequest) {
-		Car car=this.carDao.getById(updateRentAlRequest.getCarId());
-		car.setCity(updateRentAlRequest.getReturnCity());
-		this.carDao.save(car);
-	
 		
-		IndividualCustomer individualCustomer= new IndividualCustomer();
-		individualCustomer.setId(updateRentAlRequest.getCustomerId());	
-		
-		var result = BusinnesRules.run(checkIndiviualCustomerFindexPoint(
-				this.individualCustomerDao.getById(updateRentAlRequest.getCustomerId()),
-				this.carDao.getById(updateRentAlRequest.getCarId())),checkIsCarCare(updateRentAlRequest.getCarId()));
-		
+		var result = BusinnesRules.run(
+				checkIndiviualCustomerFindexPoint(
+						this.individualCustomerDao.getById(updateRentAlRequest.getCustomerId()),
+						this.carDao.getById(updateRentAlRequest.getCarId())),
+				checkIsCarCare(updateRentAlRequest.getCarId()));
+
 		if (result != null) {
 			return result;
 		}
-		
-		RentAl rental = this.rentAlDao.getById(updateRentAlRequest.getCustomerId());
-		RentAl rentAl=new RentAl();
+
+		Car car = this.carDao.getById(updateRentAlRequest.getCarId());
+
+		IndividualCustomer individualCustomer = this.individualCustomerDao.getById(updateRentAlRequest.getCustomerId());
+		individualCustomer.setId(updateRentAlRequest.getCustomerId());
+
+		RentAl rentAl = this.rentAlDao.getById(updateRentAlRequest.getRentAlId());
 		rentAl.setRentDate(updateRentAlRequest.getRentDate());
 		rentAl.setReturnDate(updateRentAlRequest.getReturnDate());
-		rental.setStartKilometer(updateRentAlRequest.getStartKilometer());
-		rental.setEndKilometer(updateRentAlRequest.getEndKilometer());
-		rentAl.setTakeCity(car.getCity());
-		rentAl.setAmount(updateRentAlRequest.getAmount());
+		rentAl.setEndKilometer(updateRentAlRequest.getEndKilometer());
+		rentAl.setReturnCity(updateRentAlRequest.getReturnCity());
+		rentAl.setAdditionalServices(
+				this.convertFromAdditionalServiceDto(updateRentAlRequest.getAdditionalServiceDtos()));
 
-		car.setKilometer(updateRentAlRequest.getEndKilometer()+car.getKilometer());
+		car.setKilometer(updateRentAlRequest.getEndKilometer() + car.getKilometer());
 
-		
-		rental.setCar(car);
-		rental.setCustomers(individualCustomer);
-		
-		this.rentAlDao.save(rental);
+		rentAl.setCar(car);
+		rentAl.setCustomers(individualCustomer);
+
+		this.rentAlDao.save(rentAl);
+
+		car.setCity(updateRentAlRequest.getReturnCity());
+		this.carDao.save(car);
+
 		return new SuccessResult(Messages.Update);
 	}
 
 	@Override
 	public Result addRentalForCorporateCustomer(AddRentAlRequest addRentAlRequest) {
-		Car car=this.carDao.getById(addRentAlRequest.getCarId());
-		//teslim ettikten sonraki teslim edilen il
-		car.setCity(addRentAlRequest.getReturnCity());	
-		this.carDao.save(car);
-		
-		
-		CorporateCustomer corporateCustomer=new CorporateCustomer();
+		Car car = this.carDao.getById(addRentAlRequest.getCarId());
+
+		CorporateCustomer corporateCustomer = new CorporateCustomer();
 		corporateCustomer.setId(addRentAlRequest.getCustomerId());
-		
 
-		var result= BusinnesRules.run(checkCarIsSubmit(addRentAlRequest.getCarId()),checkCorporateCustomerFindexPoint(
-				this.corporateCustomerDao.getById(addRentAlRequest.getCustomerId()),
-				this.carDao.getById(addRentAlRequest.getCarId())),checkIsCarCare(addRentAlRequest.getCarId()),
-				this.checkPaymentControl(addRentAlRequest.getCreditCardDto(),getRentalTotalPrice(addRentAlRequest)));
+		var result = BusinnesRules.run(checkCarIsSubmit(addRentAlRequest.getCarId()),
+				checkCorporateCustomerFindexPoint(this.corporateCustomerDao.getById(addRentAlRequest.getCustomerId()),
+						this.carDao.getById(addRentAlRequest.getCarId())),
+				checkIsCarCare(addRentAlRequest.getCarId()),
+				this.checkPaymentControl(addRentAlRequest.getCreditCardDto(), getRentalTotalPrice(addRentAlRequest)));
 
-		if (result!=null) {
+		if (result != null) {
 			return result;
 		}
-		
-		RentAl rentAl=new RentAl();
+
+		RentAl rentAl = new RentAl();
 		rentAl.setRentDate(addRentAlRequest.getRentDate());
 		rentAl.setReturnDate(addRentAlRequest.getReturnDate());
 		rentAl.setStartKilometer(car.getKilometer());
 		rentAl.setEndKilometer(addRentAlRequest.getEndKilometer());
+		
+		//Ek Hizmet Methodu
 		rentAl.setAmount(checkCalculateTotalAmountOfRental(addRentAlRequest));
-		//rentAl.setAmount(checkCalculateTotalAmountOfRental(addRentAlRequest));
-		
-		
-		//kiralamadan önceki başlangıç şehiri.
+
+		// Arabanın kiralanmadan önceki ili kiralanma şehri olacak
 		rentAl.setTakeCity(car.getCity());
+
 		rentAl.setReturnCity(addRentAlRequest.getReturnCity());
 		
-		car.setKilometer(addRentAlRequest.getEndKilometer()+car.getKilometer());
+		// Müşterinin girdiği km bilgisini arabanın km bilgisi ile güncelleme
+		car.setKilometer(addRentAlRequest.getEndKilometer() + car.getKilometer());
 
 		rentAl.setCar(car);
 		rentAl.setCustomers(corporateCustomer);
-		
 
-	
-		
 		this.rentAlDao.save(rentAl);
+
+		// Arabayı tekrar teslim ettiğimizde teslim ili arabanın bulunduğu il olacak
+		car.setCity(addRentAlRequest.getReturnCity());
+		this.carDao.save(car);
 		
+		// Müşteri kredi kartını kaydetmek istiyorsa kaydetme işlemi
 		if (addRentAlRequest.isSaveCreditCard()) {
 			this.checkCreditCardPaymentAndSavedControl(addRentAlRequest.getCreditCardDto(),
 					addRentAlRequest.getCustomerId());
@@ -235,43 +244,41 @@ public class RentAlManager implements RentAlService{
 
 	@Override
 	public Result updateRentalForCorporateCustomer(UpdateRentAlRequest updateRentAlRequest) {
-		Car car=this.carDao.getById(updateRentAlRequest.getCarId());
-		//teslim ettikten sonraki teslim edilen il
-		car.setCity(updateRentAlRequest.getReturnCity());	
-		this.carDao.save(car);
+		
+		var result = BusinnesRules.run(checkCarIsSubmit(updateRentAlRequest.getCarId()),
+				checkCorporateCustomerFindexPoint(
+						this.corporateCustomerDao.getById(updateRentAlRequest.getCustomerId()),
+						this.carDao.getById(updateRentAlRequest.getCarId())),
+				checkIsCarCare(updateRentAlRequest.getCarId()));
 
-		
-		CorporateCustomer corporateCustomer=new CorporateCustomer();
+		if (result != null) {
+			return result;
+		}
+
+		Car car = this.carDao.getById(updateRentAlRequest.getCarId());
+
+		CorporateCustomer corporateCustomer = new CorporateCustomer();
 		corporateCustomer.setId(updateRentAlRequest.getCustomerId());
-		
-		RentAl rentAl=new RentAl();
+
+		RentAl rentAl = this.rentAlDao.getById(updateRentAlRequest.getRentAlId());
 		rentAl.setRentAlId(updateRentAlRequest.getRentAlId());
 		rentAl.setRentDate(updateRentAlRequest.getRentDate());
 		rentAl.setReturnDate(updateRentAlRequest.getReturnDate());
-		rentAl.setTakeCity(updateRentAlRequest.getTakeCity());
-		rentAl.setStartKilometer(updateRentAlRequest.getStartKilometer());
 		rentAl.setEndKilometer(updateRentAlRequest.getEndKilometer());
-		rentAl.setAmount(updateRentAlRequest.getAmount());
+		rentAl.setReturnCity(updateRentAlRequest.getReturnCity());
 
-		car.setKilometer(updateRentAlRequest.getEndKilometer()+car.getKilometer());
+		rentAl.setAdditionalServices(
+				this.convertFromAdditionalServiceDto(updateRentAlRequest.getAdditionalServiceDtos()));
 
+		car.setKilometer(updateRentAlRequest.getEndKilometer() + car.getKilometer());
 
-		
-		//kiralamadan önceki başlangıç şehiri.
-		rentAl.setTakeCity(car.getCity());
-		
 		rentAl.setCar(car);
 		rentAl.setCustomers(corporateCustomer);
-		
-		var result= BusinnesRules.run(checkCarIsSubmit(rentAl.getCar().getCarId()),checkCorporateCustomerFindexPoint(
-				this.corporateCustomerDao.getById(updateRentAlRequest.getCustomerId()),
-				this.carDao.getById(updateRentAlRequest.getCarId())),checkIsCarCare(updateRentAlRequest.getCarId()));
 
-		if (result!=null) {
-			return result;
-		}
-		
 		this.rentAlDao.save(rentAl);
+
+		car.setCity(updateRentAlRequest.getReturnCity());
+		this.carDao.save(car);
 		return new SuccessResult(Messages.Update);
 	}
 	
@@ -309,63 +316,56 @@ public class RentAlManager implements RentAlService{
 		
 	}
 	
-	
-	private Result checkCorporateCustomerFindexPoint(CorporateCustomer corporateCustomer,Car car) {
-		
-		if(this.checkService.checkCorporateCustomerFindexPoint(corporateCustomer) <= car
-				.getFindexPoint()) {
+	private Result checkCorporateCustomerFindexPoint(CorporateCustomer corporateCustomer, Car car) {
+
+		if (this.checkService.checkCorporateCustomerFindexPoint(corporateCustomer) <= car.getFindexPoint()) {
 			return new ErrorResult(Messages.ErrorScore);
 		}
-		
+
 		return new SuccessResult();
-		
+
 	}
-	
-	
+
 	private Result checkIsCarCare(int carId) {
 		if (this.careDao.getByCar_CarId(carId).size() != 0) {
-			Care care= this.careDao.getByCar_CarId(carId)
-					.get(this.careDao.getByCar_CarId(carId).size()-1);
-			
-			
-			if (care.getFinishDate()==null) {
+			Care care = this.careDao.getByCar_CarId(carId).get(this.careDao.getByCar_CarId(carId).size() - 1);
+
+			if (care.getFinishDate() == null) {
 				return new ErrorResult(Messages.rentalcareError);
-		}
-		
+			}
+
 		}
 		return new SuccessResult();
 	}
-	
+
 	private Result checkCreditCardPaymentAndSavedControl(CreditCardDto creditCardDto, int customerId) {
-		
-		AddCreditCardRequest addCreditCardRequest= new AddCreditCardRequest();
-		
+
+		AddCreditCardRequest addCreditCardRequest = new AddCreditCardRequest();
+
 		addCreditCardRequest.setCardName(creditCardDto.getCardName());
 		addCreditCardRequest.setCardNumber(creditCardDto.getCardNumber());
 		addCreditCardRequest.setExpiration(creditCardDto.getExpiration());
 		addCreditCardRequest.setCvc(creditCardDto.getCvc());
 		addCreditCardRequest.setCustomerId(customerId);
-		
+
 		return new SuccessResult(this.creditCardService.add(addCreditCardRequest).getMessage());
 	}
-	
-	
-	public Result checkPaymentControl(CreditCardDto creditCardDto,double price) {
-		
-		PosRequest posRequest= new PosRequest();
+
+	public Result checkPaymentControl(CreditCardDto creditCardDto, double price) {
+
+		PosRequest posRequest = new PosRequest();
 		posRequest.setCardName(creditCardDto.getCardName());
 		posRequest.setCardNumber(creditCardDto.getCardNumber());
 		posRequest.setExpiration(creditCardDto.getExpiration());
 		posRequest.setCvc(creditCardDto.getCvc());
 		posRequest.setPrice(price);
-		
-		
+
 		if (!this.createPosService.payment(posRequest)) {
 			return new ErrorResult(Messages.paymentError);
 		}
 		return new SuccessResult();
-}
-	
+	}
+
 	private double getRentalTotalPrice(AddRentAlRequest addRentAlRequest) {
 
 		Car car = this.carService.getById(addRentAlRequest.getCarId()).getData();
@@ -377,39 +377,47 @@ public class RentAlManager implements RentAlService{
 
 		return totalPrice;
 	}
-	
-	
-	  private double checkCalculateTotalAmountOfRental(AddRentAlRequest addRentAlRequest) {
-	  
-	  Car car= this.carDao.getById(addRentAlRequest.getCarId());
-	  
-	  long rentDays=  ChronoUnit.DAYS.between(addRentAlRequest.getRentDate().toInstant(),
-	  addRentAlRequest.getReturnDate().toInstant());
-	  
-	  double amount= rentDays*car.getDailyPrice();
-	  
-	  
-	  if(addRentAlRequest.getReturnCity().equals(addRentAlRequest.getTakeCity())== false) { 
-		  amount +=500;
-	  
-	  }
-	  
-	  List<AdditionalServiceDto> additionalServiceDtos = addRentAlRequest.getAdditionalServiceDtos();
 
-      for (AdditionalServiceDto additionalServiceDto : additionalServiceDtos) {
+	private double checkCalculateTotalAmountOfRental(AddRentAlRequest addRentAlRequest) {
 
-          AdditionalService additionalService=this.additionalServicesService.getById(additionalServiceDto.getAdditionalId()).getData();
+		Car car = this.carDao.getById(addRentAlRequest.getCarId());
 
-          double additionalServiceTotalPrice = additionalService.getAdditionalPrice() * rentDays;
+		long rentDays = ChronoUnit.DAYS.between(addRentAlRequest.getRentDate().toInstant(),
+				addRentAlRequest.getReturnDate().toInstant());
 
-          amount += additionalServiceTotalPrice;
-      }
+		double amount = rentDays * car.getDailyPrice();
 
-      return (double) amount;
-  }
+		if (addRentAlRequest.getReturnCity().equals(addRentAlRequest.getTakeCity()) == false) {
+			amount += 500;
 
+		}
+
+		List<AdditionalServiceDto> additionalServiceDtos = addRentAlRequest.getAdditionalServiceDtos();
+
+		for (AdditionalServiceDto additionalServiceDto : additionalServiceDtos) {
+
+			AdditionalService additionalService = this.additionalServicesService
+					.getById(additionalServiceDto.getAdditionalId()).getData();
+
+			double additionalServiceTotalPrice = additionalService.getAdditionalPrice() * rentDays;
+
+			amount += additionalServiceTotalPrice;
+		}
+
+		return (double) amount;
+	}
+
+	private List<AdditionalService> convertFromAdditionalServiceDto(List<AdditionalServiceDto> additionalServiceDtos) {
+		List<AdditionalService> additionalServices = new ArrayList<AdditionalService>();
+
+		for (AdditionalServiceDto additionalServicedto : additionalServiceDtos) {
+			additionalServices
+					.add(this.additionalServicesService.getById(additionalServicedto.getAdditionalId()).getData());
+		}
+
+		return additionalServices;
+	}
 	
 	 
 	
 }
-		
