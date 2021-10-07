@@ -36,7 +36,7 @@ gulay_431@hotmail.com
 ## GEREKSİNİMLER
 
 1-
-Yepyeni bir proje oluşturunuz. Adı ReCapProject olacak. (Tekrar ve geliştirme projesi)
+Yeni bir proje oluşturunuz. Adı ReCapProject olacak. 
 Entities, DataAccess, Business oluşturunuz.
 Bir araba nesnesi oluşturunuz. "Car"
 Brand ve Color nesnelerini oluşturunuz.(BrandId,BrandName…
